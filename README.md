@@ -20,11 +20,14 @@ campaign_buddy_ai/
 ├── Dockerfile   # For containerizing the app
 ├── docker-compose.yml  # For local Postgres
 
+
+
 # RUNNING 
 
 * ... 
   * `.\.venv\Scripts\Activate.ps1` 
   * `pip install -r requirements.txt` 
+
 
 
 # STEP-BY-STEP BUILDING 
@@ -33,18 +36,24 @@ campaign_buddy_ai/
   * Created folder structure and files following AI suggestions
   * Create virtual environment 
     * `python -m venv .venv` 
-  * Install core python dependencies
+
+* Install core python dependencies
     * Via `requirements.txt`
-      * `fastapi` 
+        * `fastapi` 
         * Web framework to build the API for your app, handling requests to generate segment-specific emails.
-      * `uvicorn[standard]` 
+        * `uvicorn[standard]` 
         * Server to run your FastAPI app, enabling it to handle HTTP requests locally or in production.
-      * `asyncpg`
+        * `asyncpg`
         * Python library for async database access to Postgres, used to extract NationBuilder email and engagement data efficiently.
-      * `python-dotenv`
+        * `python-dotenv`
         * Loads environment variables from .env (e.g., database credentials) for secure configuration.
-      * `sqlalchemy[asyncio]`
+        * `sqlalchemy[asyncio]`
         * ORM library for Python to interact with Postgres asynchronously, simplifying data extraction and management.
+
+* Install Docker Windows app 
+  * `https://www.docker.com/products/docker-desktop/`
+    * Keep all default settings
+    * It will ask to enable WSL 2 - say Yes
 
 
 
