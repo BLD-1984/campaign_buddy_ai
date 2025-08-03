@@ -43,7 +43,7 @@ Sample database extraction powershell commands
 
   docker exec campaign_buddy_postgres psql -U dev_user -d campaign_buddy_ai -c "\COPY (SELECT * FROM nbuild_larouchepac.mailing_events_opened LIMIT 100) TO STDOUT WITH CSV HEADER" > data/mailing_events_opened_sample.csv
 
-
+nbuild_larouchepac.signups 
 
 
 # STEP-BY-STEP BUILDING 
@@ -84,10 +84,16 @@ Sample database extraction powershell commands
       * `docker-compose up -d`
       * `docker-compose ps`
 
-* Explore a NB database snapshot 
+* Restore a NB database snapshot 
   * Copy the dump file into the container
     * `docker cp .\data\backup-for-larouchepac20250728-50530-q0c394_ campaign_buddy_postgres:/tmp/backup.dump` 
       * This copied your local backup file (backup-for-larouchepac20250728-50530-q0c394_) into the running Docker container named campaign_buddy_postgres, placing it at /tmp/backup.dump inside the container.
+  * Create required extensions 
+      * According to ChatGPT, the NB backup "expects the shared_extensions schema (with types like hstore and citext) to exist, but it is missing in your database. This is common for NationBuilder or Rails/Postgres apps that use extensions."
+    * `docker exec -it campaign_buddy_postgres psql -U dev_user -d campaign_buddy_ai -c "CREATE SCHEMA IF NOT EXISTS shared_extensions;"`
+    * `docker exec -it campaign_buddy_postgres psql -U dev_user -d campaign_buddy_ai -c "CREATE EXTENSION IF NOT EXISTS hstore SCHEMA shared_extensions;"`
+    * `docker exec -it campaign_buddy_postgres psql -U dev_user -d campaign_buddy_ai -c "CREATE EXTENSION IF NOT EXISTS citext SCHEMA shared_extensions;"`
+    * `docker exec -it campaign_buddy_postgres psql -U dev_user -d campaign_buddy_ai -c "CREATE EXTENSION IF NOT EXISTS pg_trgm SCHEMA shared_extensions;"`
   * Restore from inside the container (with 2nd option to ignore ownership issues)
     * `docker exec -it campaign_buddy_postgres pg_restore -U dev_user -d campaign_buddy_ai -v /tmp/backup.dump`
     * `docker exec -it campaign_buddy_postgres pg_restore -U dev_user -d campaign_buddy_ai -v --no-owner --no-privileges /tmp/backup.dump`
