@@ -37,6 +37,12 @@ campaign_buddy_ai/
 
 
 
+Sample database extraction powershell commands 
+
+  docker exec campaign_buddy_postgres pg_dump -U dev_user -d campaign_buddy_ai -t nbuild_larouchepac.mailing_events_opened --data-only --column-inserts > data/mailing_events_opened.sql
+
+  docker exec campaign_buddy_postgres psql -U dev_user -d campaign_buddy_ai -c "\COPY (SELECT * FROM nbuild_larouchepac.mailing_events_opened LIMIT 100) TO STDOUT WITH CSV HEADER" > data/mailing_events_opened_sample.csv
+
 
 
 
@@ -73,6 +79,7 @@ campaign_buddy_ai/
       * Create a database called `campaign_buddy_ai`
       * To verify `docker-compose ps`
     * Update `.env` file to match the Docker database 
+      * ... 
     * Check status with the powershell commands: 
       * `docker-compose up -d`
       * `docker-compose ps`
@@ -87,6 +94,7 @@ campaign_buddy_ai/
       * This ran the pg_restore command inside the campaign_buddy_postgres container, using the dev_user user to restore the database dump (/tmp/backup.dump) into the campaign_buddy_ai database. The -v flag gave you verbose output about the restore process.
   * Export database tables 
     * `docker exec -it campaign_buddy_postgres psql -U dev_user -d campaign_buddy_ai -c "\dt nbuild_larouchepac.*" > tables.txt` 
+
 
 
 

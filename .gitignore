@@ -5,6 +5,7 @@ env/
 
 # Local database files
 data/
+.env
 
 # Python cache and compiled files
 __pycache__/
