@@ -1,3 +1,7 @@
+
+# MIGHT NEED TO re-clone or reset their local repos ON PORTABLE LAPTOP 
+ - 20250802 
+
 Let's go! 
 
 
