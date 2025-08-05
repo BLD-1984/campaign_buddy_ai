@@ -28,9 +28,13 @@ campaign_buddy_ai/
 
 # RUNNING 
 
+## Venv 
+
 * Virtual Environment and dependencies 
   * `.\.venv\Scripts\Activate.ps1` 
   * `pip install -r requirements.txt` 
+
+## Docker (for ...)
 
 * For Docker 
   * Docker Desktop needs to be running 
@@ -40,22 +44,30 @@ campaign_buddy_ai/
     * This stops the containers but keeps your data 
 
 
-
 Sample database extraction powershell commands 
 
   docker exec campaign_buddy_postgres pg_dump -U dev_user -d campaign_buddy_ai -t nbuild_larouchepac.mailing_events_opened --data-only --column-inserts > data/mailing_events_opened.sql
 
-  docker exec campaign_buddy_postgres psql -U dev_user -d campaign_buddy_ai -c "\COPY (SELECT * FROM nbuild_larouchepac.mailing_events_opened LIMIT 100) TO STDOUT WITH CSV HEADER" > data/mailing_events_opened_sample.csv
+  docker exec campaign_buddy_postgres psql -U dev_user -d campaign_buddy_ai -c "\COPY (SELECT * FROM nbuild_larouchepac.mailing_events_sent LIMIT 100) TO STDOUT WITH CSV HEADER" > data/mailing_events_sent_sample.csv
 
 nbuild_larouchepac.signups 
 
 
+## NationBuilder API 
+
+* ... using refresh token ... 
+
+
 # STEP-BY-STEP BUILDING 
+
+## Repo 
 
 * New GitHub repo `campaign_buddy_ai`
   * Created folder structure and files following AI suggestions
   * Create virtual environment 
     * `python -m venv .venv` 
+
+## Python Dependencies 
 
 * Install core python dependencies (using a `requirements.txt`)
   * `fastapi` 
@@ -68,6 +80,8 @@ nbuild_larouchepac.signups
     * Loads environment variables from .env (e.g., database credentials) for secure configuration.
   * `sqlalchemy[asyncio]`
     * ORM library for Python to interact with Postgres asynchronously, simplifying data extraction and management.
+
+## Docker 
 
 * Set up Docker 
   * Install Docker Windows app 
@@ -88,6 +102,8 @@ nbuild_larouchepac.signups
       * `docker-compose up -d`
       * `docker-compose ps`
 
+## Restore NB Snapshot 
+
 * Restore a NB database snapshot 
   * Copy the dump file into the container
     * `docker cp .\data\backup-for-larouchepac20250728-50530-q0c394_ campaign_buddy_postgres:/tmp/backup.dump` 
@@ -105,7 +121,29 @@ nbuild_larouchepac.signups
   * Export database tables 
     * `docker exec -it campaign_buddy_postgres psql -U dev_user -d campaign_buddy_ai -c "\dt nbuild_larouchepac.*" > tables.txt` 
 
+## NationBuilder API 
 
+Following "API Authentication Guide" 
+    `https://intercom.help/3dna/en/articles/9903805-api-authentication-guide`
+
+* In the Nation's settings --> developer, register an app 
+  * Save 
+    * OAuth client ID 
+    * OAuth client secret
+    * OAuth callback URL 
+* Authenticate with NationBuilder API using OAuth 2.0 
+  * Compose URL with relevant info to get short-lived code
+    * `https://[YOUR_NATION].nationbuilder.com/oauth/authorize?client_id=YOUR_CLIENT_ID&redirect_uri=YOUR_REDIRECT_URI&response_type=code`
+  * Exchange the authorization code for an access token 
+    * `nationbuilder_token_exchange.py`
+  * Save 
+    * access_token
+    * refresh_token 
+  * Access token is good for 24 hours, then need to use refresh token
+    * "Your application must make a refresh_token grant type request to receive a new access token before or after the access token expires" 
+    * "Your application can make the refresh flow request either by:" 
+      * "Handling the token_expired error response that will result when you make an API request with an already-expired access token" 
+      * "Refreshing the access token in your application before it expires. When you receive an access token, the response body includes an expires_in field with the number of seconds until the access token will expire (24 hours by default). You can use this information to calculate a time within your application to refresh the token before it expires instead of handling the error."
 
 
 
