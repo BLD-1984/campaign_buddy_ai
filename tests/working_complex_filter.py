@@ -1,16 +1,19 @@
-# tests/direct_tag_approach.py
+# tests/working_complex_filter.py
 """
-Use the known tag IDs and look for similar ones in that range
+Working complex filter implementation using the ACTUAL tag format we discovered
 """
 
 import sys
 import os
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'src'))
+import csv
+from datetime import datetime
 
 from dotenv import load_dotenv
 load_dotenv()
 
 from nb_api_client import NationBuilderClient
+from typing import List, Dict, Any, Set
 
 
 def load_client():
@@ -23,194 +26,380 @@ def load_client():
     )
 
 
-def look_around_known_tag_ids(client):
-    """Look for tags around the known IDs 3482 and 14732"""
-    print("🎯 Looking around known tag IDs for similar tags")
-    print("-" * 50)
+def find_met_at_tag_ids_working(client: NationBuilderClient) -> List[str]:
+    """
+    Find all tag IDs that match the ACTUAL format:
+    'Met at deployment on 2025-07-XX', 'Met at event on 2025-07-XX', etc.
+    """
+    print("🏷️  Finding 'Met at...' tag IDs (ACTUAL FORMAT)")
+    print("-" * 40)
     
-    known_tag_ids = [3482, 14732]  # The ones we found
-    met_at_tags = []
-    
-    for base_id in known_tag_ids:
-        print(f"\n🔍 Checking around tag ID {base_id}:")
-        
-        # Check a range around this ID
-        start_id = max(1, base_id - 50)
-        end_id = base_id + 100
-        
-        for tag_id in range(start_id, end_id):
-            try:
-                # Try to get this specific tag
-                response = client.session.get(f"{client.base_url}/signup_tags/{tag_id}")
-                
-                if response.status_code == 200:
-                    tag_data = response.json()
-                    tag = tag_data.get('data', {})
-                    tag_name = tag.get('attributes', {}).get('name', '')
-                    
-                    # Check if it's a "Met at" tag
-                    if 'met at' in tag_name.lower():
-                        met_at_tags.append({
-                            'id': str(tag_id),
-                            'name': tag_name
-                        })
-                        print(f"   🎯 FOUND: ID {tag_id} - '{tag_name}'")
-                        
-                        # Check specifically for 2025-07
-                        if '2025-07' in tag_name:
-                            print(f"      ⭐ THIS IS A 2025-07 TAG!")
-                
-            except Exception:
-                continue  # Tag doesn't exist, skip
-        
-        print(f"   Checked range {start_id}-{end_id}")
-    
-    return met_at_tags
-
-
-def search_high_id_ranges(client):
-    """Search in higher ID ranges where newer tags might be"""
-    print(f"\n🔍 Searching high ID ranges for newer tags")
-    print("-" * 50)
-    
-    # Since 14732 was found, newer 2025 tags might be in ranges around there
-    high_ranges = [
-        (14700, 14800),  # Around the known 2025 tag
-        (15000, 15100),  # Slightly higher
-        (16000, 16100),  # Even higher
-        (20000, 20100),  # Much higher
+    # Updated patterns based on what we actually found
+    search_patterns = [
+        "met at deployment on 2025-07",
+        "met at event on 2025-07", 
+        "met at rally on 2025-07",
+        "met at online on 2025-07",
+        "met at other on 2025-07"
     ]
     
-    met_at_tags = []
+    matching_tag_ids = []
     
-    for start_id, end_id in high_ranges:
-        print(f"   Checking range {start_id}-{end_id}...")
-        found_in_range = 0
+    try:
+        page = 1
+        total_searched = 0
         
-        for tag_id in range(start_id, end_id):
-            try:
-                response = client.session.get(f"{client.base_url}/signup_tags/{tag_id}")
+        while page <= 300:  # Search up to 30k tags
+            result = client.get_signup_tags(page_size=100)
+            tags = result.get('data', [])
+            
+            if not tags:
+                break
                 
-                if response.status_code == 200:
-                    tag_data = response.json()
-                    tag = tag_data.get('data', {})
-                    tag_name = tag.get('attributes', {}).get('name', '')
+            total_searched += len(tags)
+            
+            # Search this page for our patterns
+            for tag in tags:
+                tag_name = tag.get('attributes', {}).get('name', '').lower()
+                tag_id = tag.get('id')
+                original_name = tag.get('attributes', {}).get('name', '')
+                
+                # Check if this tag starts with any of our patterns
+                for pattern in search_patterns:
+                    if tag_name.startswith(pattern):
+                        matching_tag_ids.append(tag_id)
+                        print(f"   🎯 MATCH: '{original_name}' (ID: {tag_id})")
+                        break
+            
+            # Progress update
+            if page % 50 == 0:
+                print(f"   📊 Page {page}: Searched {total_searched} tags, found {len(matching_tag_ids)} matches")
+            
+            # Stop if we found a good number or hit end
+            if len(tags) < 100:
+                break
+            page += 1
+            
+            # Safety break
+            if len(matching_tag_ids) > 100:
+                print(f"   ✅ Found 100+ matching tags, that should be enough")
+                break
+        
+        print(f"✅ Found {len(matching_tag_ids)} matching 'Met at...' tags")
+        print(f"📊 Searched {total_searched} total tags")
+        return matching_tag_ids
+        
+    except Exception as e:
+        print(f"❌ Error finding tags: {e}")
+        return []
+
+
+def get_people_with_met_at_tags_working(client: NationBuilderClient, tag_ids: List[str]) -> Set[str]:
+    """
+    Get all signup IDs that have any of the 'Met at...' tags
+    """
+    print(f"\n👥 Finding people with Met at tags")
+    print("-" * 40)
+    
+    if not tag_ids:
+        print("❌ No tag IDs provided")
+        return set()
+    
+    all_signup_ids = set()
+    
+    try:
+        print(f"🔍 Checking {len(tag_ids)} tag IDs...")
+        
+        for i, tag_id in enumerate(tag_ids, 1):
+            print(f"   {i}/{len(tag_ids)} Checking tag ID: {tag_id}")
+            
+            # Get all people with this tag
+            page = 1
+            while True:
+                result = client.get_signup_taggings(
+                    filters={'tag_id': tag_id},
+                    page_size=100
+                )
+                
+                taggings = result.get('data', [])
+                if not taggings:
+                    break
+                
+                # Extract signup IDs
+                for tagging in taggings:
+                    signup_id = tagging.get('attributes', {}).get('signup_id')
+                    if signup_id:
+                        all_signup_ids.add(signup_id)
+                
+                if len(taggings) < 100:
+                    break
+                page += 1
+                
+                if page > 10:  # Safety limit
+                    break
+            
+            tag_count = len([t for t in taggings if t.get('attributes', {}).get('signup_id')])
+            if tag_count > 0:
+                print(f"      Found {tag_count} people with this tag")
+    
+        print(f"✅ Total unique people with Met at tags: {len(all_signup_ids)}")
+        return all_signup_ids
+        
+    except Exception as e:
+        print(f"❌ Error getting people with tags: {e}")
+        return set()
+
+
+def apply_path_exclusions_working(client: NationBuilderClient, signup_ids: Set[str]) -> Set[str]:
+    """
+    Apply path-based exclusions:
+    - NOT on path 1110 (Top Circles)  
+    - NOT completed path 1111 (Field Signups)
+    - NOT abandoned path 1111
+    - NOT on steps 1393 or 1394
+    """
+    print(f"\n🛤️  Applying path exclusions")
+    print("-" * 40)
+    
+    if not signup_ids:
+        return set()
+    
+    excluded_signup_ids = set()
+    
+    try:
+        print(f"   Checking path exclusions for {len(signup_ids)} people...")
+        
+        # Get ALL path journeys for the relevant paths
+        paths_to_check = ['1110', '1111']  # Top Circles and Field Signups
+        
+        for path_id in paths_to_check:
+            print(f"   🔍 Checking path {path_id}...")
+            
+            page = 1
+            while True:
+                result = client.get_path_journeys(
+                    filters={'path_id': path_id},
+                    page_size=100
+                )
+                
+                journeys = result.get('data', [])
+                if not journeys:
+                    break
+                
+                for journey in journeys:
+                    attrs = journey.get('attributes', {})
+                    signup_id = attrs.get('signup_id')
+                    status = attrs.get('status', '').lower() if attrs.get('status') else ''
+                    path_step_id = attrs.get('path_step_id')
                     
-                    if 'met at' in tag_name.lower():
-                        met_at_tags.append({
-                            'id': str(tag_id),
-                            'name': tag_name
-                        })
-                        found_in_range += 1
+                    if signup_id in signup_ids:
+                        should_exclude = False
+                        reason = ""
                         
-                        if found_in_range <= 3:  # Show first 3 per range
-                            print(f"      🎯 ID {tag_id}: '{tag_name}'")
+                        if path_id == '1110':
+                            # Anyone on Top Circles path is excluded
+                            should_exclude = True
+                            reason = "on path 1110 (Top Circles)"
                         
-                        if '2025-07' in tag_name:
-                            print(f"         ⭐ 2025-07 TAG!")
+                        elif path_id == '1111':
+                            # Check Field Signups path conditions
+                            if status in ['completed', 'abandoned']:
+                                should_exclude = True
+                                reason = f"{status} path 1111 (Field Signups)"
+                            elif path_step_id in ['1393', '1394']:
+                                should_exclude = True
+                                reason = f"on step {path_step_id} (Attempted/Reached)"
+                        
+                        if should_exclude:
+                            excluded_signup_ids.add(signup_id)
+                            if len(excluded_signup_ids) <= 10:  # Show first 10
+                                print(f"      ❌ Excluded {signup_id}: {reason}")
                 
-            except Exception:
-                continue
+                if len(journeys) < 100:
+                    break
+                page += 1
+                
+                if page > 20:  # Safety limit
+                    break
         
-        if found_in_range > 3:
-            print(f"      ... and {found_in_range - 3} more in this range")
-        elif found_in_range == 0:
-            print(f"      No 'Met at' tags in this range")
-    
-    return met_at_tags
+        remaining_count = len(signup_ids) - len(excluded_signup_ids)
+        print(f"✅ After path exclusions: {remaining_count} people remain ({len(excluded_signup_ids)} excluded)")
+        
+        return signup_ids - excluded_signup_ids
+        
+    except Exception as e:
+        print(f"❌ Error applying path exclusions: {e}")
+        return signup_ids
 
 
-def use_known_tags_directly(client):
-    """Use the tags we already know exist"""
-    print(f"\n💡 Using known tag IDs directly")
-    print("-" * 50)
+def apply_banned_filter_working(client: NationBuilderClient, signup_ids: Set[str]) -> List[Dict[str, Any]]:
+    """
+    Filter out banned people and return full signup records for the final list
+    """
+    print(f"\n🚫 Applying banned filter and getting final records")
+    print("-" * 40)
     
-    # We know these exist
-    known_met_at_tags = [
-        {'id': '3482', 'name': 'Met at deployment on 2021-07-29—Cinco Ranch TX (Tax Office)'},
-        {'id': '14732', 'name': 'Met at deployment on 2025-07-23—Tracy CA (Post Office)'}
-    ]
+    if not signup_ids:
+        return []
     
-    for tag in known_met_at_tags:
-        print(f"   ✅ Known tag: ID {tag['id']} - '{tag['name']}'")
+    final_signups = []
+    
+    try:
+        signup_id_list = list(signup_ids)
+        batch_size = 50  # Larger batches for efficiency
         
-        # Check how many people have this tag
-        try:
-            result = client.get_signup_taggings(
-                filters={'tag_id': tag['id']},
-                page_size=1  # Just get count
-            )
+        for i in range(0, len(signup_id_list), batch_size):
+            batch = signup_id_list[i:i + batch_size]
+            print(f"   Processing batch {i//batch_size + 1}/{(len(signup_id_list)-1)//batch_size + 1}: {len(batch)} people")
             
-            # Try to get a second page to see if there are more
-            result2 = client.get_signup_taggings(
-                filters={'tag_id': tag['id']},
-                page_size=100
-            )
-            
-            count = len(result2.get('data', []))
-            if count == 100:
-                # There might be more, let's get a rough estimate
-                print(f"      Has 100+ people (probably more)")
-            else:
-                print(f"      Has {count} people")
-                
-        except Exception as e:
-            print(f"      Could not count people: {e}")
+            for signup_id in batch:
+                try:
+                    # Get the full signup record
+                    signup_result = client.get_signup_by_id(
+                        signup_id, 
+                        fields=[
+                            'first_name', 'last_name', 'email', 'banned_at', 'id',
+                            'created_at', 'support_level', 'phone_number'
+                        ]
+                    )
+                    
+                    signup = signup_result.get('data')
+                    if signup:
+                        attrs = signup.get('attributes', {})
+                        banned_at = attrs.get('banned_at')
+                        
+                        # Check if not banned
+                        if not banned_at:
+                            final_signups.append(signup)
+                        else:
+                            print(f"      ❌ Excluded {signup_id}: banned")
+                            
+                except Exception as e:
+                    print(f"      ⚠️  Could not check signup {signup_id}: {e}")
+                    continue
+        
+        print(f"✅ Final count after banned filter: {len(final_signups)} people")
+        return final_signups
+        
+    except Exception as e:
+        print(f"❌ Error applying banned filter: {e}")
+        return []
+
+
+def export_to_csv_working(people: List[Dict[str, Any]], filename: str = None) -> str:
+    """Export the list of people to CSV"""
+    if not filename:
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"met_at_people_working_{timestamp}.csv"
     
-    return known_met_at_tags
+    print(f"\n📄 Exporting to CSV: {filename}")
+    
+    try:
+        with open(filename, 'w', newline='', encoding='utf-8') as csvfile:
+            fieldnames = [
+                'ID', 'First Name', 'Last Name', 'Email', 
+                'Full Name', 'Created At', 'Support Level', 'Phone Number'
+            ]
+            writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+            
+            writer.writeheader()
+            
+            for person in people:
+                attrs = person.get('attributes', {})
+                
+                row = {
+                    'ID': person.get('id', ''),
+                    'First Name': attrs.get('first_name', ''),
+                    'Last Name': attrs.get('last_name', ''),
+                    'Email': attrs.get('email', ''),
+                    'Full Name': f"{attrs.get('first_name', '')} {attrs.get('last_name', '')}".strip(),
+                    'Created At': attrs.get('created_at', ''),
+                    'Support Level': attrs.get('support_level', ''),
+                    'Phone Number': attrs.get('phone_number', '')
+                }
+                writer.writerow(row)
+        
+        print(f"✅ Successfully exported {len(people)} people to {filename}")
+        return filename
+        
+    except Exception as e:
+        print(f"❌ Error exporting CSV: {e}")
+        return None
+
+
+def run_working_complex_filter(client: NationBuilderClient) -> List[Dict[str, Any]]:
+    """Run the complete working complex filter"""
+    print("🎯 Running WORKING Complex Filter")
+    print("=" * 60)
+    
+    # Step 1: Find the actual 'Met at...' tag IDs
+    met_at_tag_ids = find_met_at_tag_ids_working(client)
+    
+    if not met_at_tag_ids:
+        print("❌ No matching tags found. Filter cannot proceed.")
+        return []
+    
+    # Step 2: Get people with those tags  
+    people_with_tags = get_people_with_met_at_tags_working(client, met_at_tag_ids)
+    
+    if not people_with_tags:
+        print("❌ No people found with matching tags.")
+        return []
+    
+    # Step 3: Apply path exclusions
+    people_after_path_filter = apply_path_exclusions_working(client, people_with_tags)
+    
+    if not people_after_path_filter:
+        print("❌ No people remaining after path exclusions.")
+        return []
+    
+    # Step 4: Apply banned filter and get final records
+    final_people = apply_banned_filter_working(client, people_after_path_filter)
+    
+    return final_people
 
 
 def main():
-    print("🔍 Direct Tag ID Search Strategy")
+    """Test the working complex filter and export results"""
+    print("🔍 WORKING Complex Filter Test")
     print("=" * 60)
+    print("Using the ACTUAL tag format we discovered!")
+    print()
     
     client = load_client()
     
-    # Strategy 1: Look around known IDs
-    nearby_tags = look_around_known_tag_ids(client)
+    # Run the complete filter
+    matching_people = run_working_complex_filter(client)
     
-    # Strategy 2: Search high ID ranges
-    high_range_tags = search_high_id_ranges(client)
+    print("\n" + "=" * 60)
+    print("🎉 FINAL RESULTS:")
+    print(f"Found {len(matching_people)} people matching all criteria")
     
-    # Strategy 3: Use what we know
-    known_tags = use_known_tags_directly(client)
-    
-    # Combine all found tags
-    all_found_tags = nearby_tags + high_range_tags + known_tags
-    
-    # Remove duplicates
-    unique_tags = {}
-    for tag in all_found_tags:
-        tag_id = tag['id']
-        if tag_id not in unique_tags:
-            unique_tags[tag_id] = tag
-    
-    print(f"\n" + "=" * 60)
-    print("🎯 SUMMARY:")
-    print(f"Found {len(unique_tags)} unique 'Met at' tags total")
-    
-    # Filter for 2025-07 tags specifically
-    july_2025_tags = []
-    for tag_id, tag in unique_tags.items():
-        if '2025-07' in tag['name']:
-            july_2025_tags.append(tag)
-    
-    if july_2025_tags:
-        print(f"\n⭐ Found {len(july_2025_tags)} tags matching '2025-07' pattern:")
-        for tag in july_2025_tags:
-            print(f"   ID {tag['id']}: '{tag['name']}'")
+    # Show sample results
+    for i, person in enumerate(matching_people[:10]):
+        attrs = person.get('attributes', {})
+        name = f"{attrs.get('first_name', 'N/A')} {attrs.get('last_name', 'N/A')}"
+        email = attrs.get('email', 'N/A')
+        person_id = person.get('id')
         
-        print(f"\n🎯 RECOMMENDATION:")
-        print(f"Use these tag IDs in your complex filter:")
-        tag_ids = [tag['id'] for tag in july_2025_tags]
-        print(f"Tag IDs: {tag_ids}")
-        
+        print(f"   {i+1}. {name} ({email}) - ID: {person_id}")
+    
+    if len(matching_people) > 10:
+        print(f"   ... and {len(matching_people) - 10} more")
+    
+    # Export to CSV
+    if matching_people:
+        csv_filename = export_to_csv_working(matching_people)
+        if csv_filename:
+            print(f"\n📁 CSV exported successfully: {csv_filename}")
+            print("🔍 Review the CSV to verify these are the correct people")
+            print("📋 Next step: Choose which path step to assign them to and build the assignment function!")
+        else:
+            print("❌ CSV export failed")
     else:
-        print(f"\n⚠️  No 2025-07 tags found yet")
-        print(f"Consider using all 'Met at deployment' tags for testing:")
-        deployment_tags = [tag for tag in unique_tags.values() if 'deployment' in tag['name'].lower()]
-        for tag in deployment_tags[:5]:
-            print(f"   ID {tag['id']}: '{tag['name']}'")
+        print("⚠️  No people found - nothing to export")
+    
+    return matching_people
 
 
 if __name__ == "__main__":
