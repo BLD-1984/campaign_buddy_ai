@@ -1,440 +1,290 @@
 # nb_path_updates/nb_nightly/filters/clickers.py
 """
-Filter module for email clickers from any broadcaster (August 2025)
-Finds people who clicked in emails from any broadcaster between 2025-08-01 and 2025-08-31
-TESTING MODE: Only exports CSV, does NOT assign to paths
+Filter module for email clickers using tag ID approach
+Finds people with tag ID 14890 (zi-c-24h - clickers within 24 hours)
+Enhanced with reactivate logic and detailed debugging
 """
 
 import sys
 import os
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..', '..', 'src'))
 
-# from src.nb_api_client import NationBuilderClient
-from nb_api_client import NationBuilderClient
-from typing import Dict, List, Any, Set
+from nb_api_client import NationBuilderClient, NationBuilderAPIError
+from typing import Dict, List, Any
 import csv
-from datetime import datetime, date
+from datetime import datetime
 
 # Filter configuration
 FILTER_NAME = "Email Clickers Filter"
-FILTER_DESCRIPTION = "People who clicked emails from any broadcaster (August 2025) - TESTING MODE"
+FILTER_DESCRIPTION = "People with tag ID 14890 (zi-c-24h - email clickers within 24h)"
 
-# Target path/step for assignment (NOT USED IN TESTING MODE)
-TARGET_PATH_ID = "1109"  # Email Clickers path
-TARGET_STEP_ID = "1386"  # Replace with the correct step ID you want to assign to
+# Target tag ID to find
+TARGET_TAG_ID = "14890"
+TARGET_TAG_NAME = "zi-c-24h"
 
-# Date range for email clicks
-START_DATE = "2025-08-01"
-END_DATE = "2025-08-31"
+# Path configuration
+PATH_ID = "1109"
+PATH_STEP_ID = "1380"
 
 
-def get_email_clickers_from_broadcasts(client: NationBuilderClient, logger) -> Set[str]:
-    """
-    Find people who clicked emails from any broadcaster between START_DATE and END_DATE
-    
-    This involves:
-    1. Getting email blasts (broadcasts) from the date range
-    2. Getting email recipients who clicked those blasts
-    """
-    logger.info(f"   Finding email clickers from {START_DATE} to {END_DATE}...")
-    
-    all_clicker_ids = set()
+def find_signup_ids_with_tag_id(client: NationBuilderClient, tag_id: str, logger) -> List[str]:
+    """Find all signup IDs who have the specified tag ID"""
+    logger.info(f"   🏷️  Finding signup IDs with tag ID: {tag_id} ({TARGET_TAG_NAME})")
     
     try:
-        # Step 1: Get email blasts from the date range
-        logger.debug("      Getting email blasts from date range...")
-        
-        # Get email blasts - we'll need to filter by date
-        blast_ids = []
+        signup_ids = []
         page = 1
+        total_processed = 0
         
         while True:
-            # Get blasts - the API endpoint might be /blasts or /emails
-            try:
-                # Try blasts endpoint first
-                response = client.session.get(f"{client.base_url}/blasts", params={'page[size]': 100})
-                
-                if response.status_code != 200:
-                    # Try different endpoint names
-                    response = client.session.get(f"{client.base_url}/email_blasts", params={'page[size]': 100})
-                
-                if response.status_code != 200:
-                    logger.error(f"      Could not access email blasts endpoint: {response.status_code}")
-                    break
-                
-                data = response.json()
-                blasts = data.get('data', [])
-                
-                if not blasts:
-                    break
-                
-                # Filter blasts by date range
-                for blast in blasts:
-                    attrs = blast.get('attributes', {})
-                    created_at = attrs.get('created_at', '')
-                    
-                    # Extract date from created_at (format: "2025-08-15T10:30:00-04:00")
-                    if created_at:
-                        try:
-                            blast_date = created_at.split('T')[0]  # Get just the date part
-                            if START_DATE <= blast_date <= END_DATE:
-                                blast_ids.append(blast.get('id'))
-                        except:
-                            continue
-                
-                if len(blasts) < 100:
-                    break
-                    
-                page += 1
-                if page > 50:  # Safety limit
-                    break
-                    
-            except Exception as e:
-                logger.warning(f"      Error getting blasts: {e}")
-                break
-        
-        logger.debug(f"      Found {len(blast_ids)} email blasts in date range")
-        
-        if not blast_ids:
-            logger.warning("      No email blasts found in date range")
-            return set()
-        
-        # Step 2: Get recipients who clicked these blasts
-        logger.debug(f"      Getting clickers for {len(blast_ids)} blasts...")
-        
-        for i, blast_id in enumerate(blast_ids[:20]):  # Limit to first 20 blasts for efficiency
-            logger.debug(f"         Checking blast {i+1}/{min(len(blast_ids), 20)}: {blast_id}")
-            
-            page = 1
-            while True:
-                try:
-                    # Get email recipients for this blast
-                    response = client.session.get(
-                        f"{client.base_url}/email_recipients",
-                        params={
-                            'filter[blast_id]': blast_id,
-                            'page[size]': 100
-                        }
-                    )
-                    
-                    if response.status_code != 200:
-                        logger.debug(f"         Could not get recipients for blast {blast_id}: {response.status_code}")
-                        break
-                    
-                    data = response.json()
-                    recipients = data.get('data', [])
-                    
-                    if not recipients:
-                        break
-                    
-                    # Look for recipients who clicked
-                    for recipient in recipients:
-                        attrs = recipient.get('attributes', {})
-                        
-                        # Check if they clicked (different possible field names)
-                        clicked = (
-                            attrs.get('clicked_at') or 
-                            attrs.get('click_count', 0) > 0 or
-                            attrs.get('clicked', False) or
-                            attrs.get('status') == 'clicked'
-                        )
-                        
-                        if clicked:
-                            signup_id = attrs.get('signup_id')
-                            if signup_id:
-                                all_clicker_ids.add(signup_id)
-                    
-                    if len(recipients) < 100:
-                        break
-                        
-                    page += 1
-                    if page > 10:  # Safety limit per blast
-                        break
-                        
-                except Exception as e:
-                    logger.debug(f"         Error getting recipients for blast {blast_id}: {e}")
-                    break
-        
-        logger.info(f"   ✅ Found {len(all_clicker_ids)} unique email clickers")
-        return all_clicker_ids
-        
-    except Exception as e:
-        logger.error(f"   ❌ Error finding email clickers: {e}")
-        return set()
-
-
-def get_email_clickers_alternative_approach(client: NationBuilderClient, logger) -> Set[str]:
-    """
-    Alternative approach: Look for email recipients directly with date and click filters
-    """
-    logger.info("   🔄 Trying alternative approach for email clickers...")
-    
-    all_clicker_ids = set()
-    
-    try:
-        # Try to get email recipients with filters
-        page = 1
-        
-        while True:
-            try:
-                # Try different filter combinations
-                filter_params = {
-                    'page[size]': 100,
-                    # Try filtering by date range
-                    'filter[created_at][gte]': START_DATE,
-                    'filter[created_at][lte]': END_DATE,
-                }
-                
-                response = client.session.get(f"{client.base_url}/email_recipients", params=filter_params)
-                
-                if response.status_code != 200:
-                    logger.debug(f"      Email recipients filter failed: {response.status_code}")
-                    break
-                
-                data = response.json()
-                recipients = data.get('data', [])
-                
-                if not recipients:
-                    break
-                
-                # Filter for clickers
-                for recipient in recipients:
-                    attrs = recipient.get('attributes', {})
-                    
-                    # Check if they clicked
-                    clicked = (
-                        attrs.get('clicked_at') or 
-                        attrs.get('click_count', 0) > 0 or
-                        attrs.get('clicked', False) or
-                        attrs.get('status') == 'clicked'
-                    )
-                    
-                    if clicked:
-                        signup_id = attrs.get('signup_id')
-                        if signup_id:
-                            all_clicker_ids.add(signup_id)
-                
-                if len(recipients) < 100:
-                    break
-                    
-                page += 1
-                if page > 100:  # Safety limit
-                    break
-                    
-            except Exception as e:
-                logger.debug(f"      Error in alternative approach: {e}")
-                break
-        
-        logger.info(f"   ✅ Alternative approach found {len(all_clicker_ids)} clickers")
-        return all_clicker_ids
-        
-    except Exception as e:
-        logger.error(f"   ❌ Alternative approach failed: {e}")
-        return set()
-
-
-def apply_path_exclusions_clickers(client: NationBuilderClient, signup_ids: Set[str], logger) -> Set[str]:
-    """
-    Apply path exclusion rules specific to clickers filter:
-    - NOT on path 1110 (Top Circles)
-    - NOT completed path 1109 (Email Clickers)
-    - NOT abandoned path 1109
-    - NOT on steps 1381, 1383, 1380 (for path 1109)
-    """
-    logger.info(f"   Applying clicker-specific path exclusions to {len(signup_ids)} people...")
-    
-    excluded_signup_ids = set()
-    
-    try:
-        # Exclusion 1: Path 1110 (Top Circles) - anyone on this path is excluded
-        logger.debug("      Checking path 1110 (Top Circles) exclusions...")
-        page = 1
-        while True:
-            result = client.get_path_journeys(filters={'path_id': '1110'}, page_size=100)
-            journeys = result.get('data', [])
-            if not journeys:
-                break
-            
-            for journey in journeys:
-                signup_id = journey.get('attributes', {}).get('signup_id')
-                if signup_id in signup_ids:
-                    excluded_signup_ids.add(signup_id)
-            
-            if len(journeys) < 100:
-                break
-            page += 1
-            if page > 20:
-                break
-        
-        path_1110_exclusions = len([sid for sid in excluded_signup_ids if sid in signup_ids])
-        logger.debug(f"         Excluded {path_1110_exclusions} people from path 1110")
-        
-        # Exclusion 2: Path 1109 (Email Clickers) rules
-        logger.debug("      Checking path 1109 (Email Clickers) exclusions...")
-        page = 1
-        path_1109_exclusions = 0
-        
-        while True:
-            result = client.get_path_journeys(filters={'path_id': '1109'}, page_size=100)
-            journeys = result.get('data', [])
-            if not journeys:
-                break
-            
-            for journey in journeys:
-                attrs = journey.get('attributes', {})
-                signup_id = attrs.get('signup_id')
-                status = attrs.get('status', '').lower() if attrs.get('status') else ''
-                path_step_id = attrs.get('path_step_id')
-                
-                if signup_id in signup_ids and signup_id not in excluded_signup_ids:
-                    should_exclude = False
-                    
-                    # Check if completed or abandoned path 1109
-                    if status in ['completed', 'abandoned']:
-                        should_exclude = True
-                        
-                    # Check if on exclusion steps 1381, 1383, 1380
-                    elif path_step_id in ['1381', '1383', '1380']:
-                        should_exclude = True
-                    
-                    if should_exclude:
-                        excluded_signup_ids.add(signup_id)
-                        path_1109_exclusions += 1
-            
-            if len(journeys) < 100:
-                break
-            page += 1
-            if page > 50:  # Might be more journeys for this path
-                break
-        
-        logger.debug(f"         Excluded {path_1109_exclusions} people from path 1109 rules")
-        
-        remaining = signup_ids - excluded_signup_ids
-        total_excluded = len(excluded_signup_ids)
-        logger.info(f"   ✅ After exclusions: {len(remaining)} people remain ({total_excluded} excluded)")
-        
-        return remaining
-        
-    except Exception as e:
-        logger.error(f"   ❌ Error applying path exclusions: {e}")
-        return signup_ids
-
-
-def get_final_records_and_filter_banned(client: NationBuilderClient, signup_ids: Set[str], logger) -> List[Dict[str, Any]]:
-    """Get full records and filter out banned people"""
-    logger.info(f"   Getting final records and filtering banned people...")
-    
-    final_signups = []
-    signup_id_list = list(signup_ids)
-    
-    for i, signup_id in enumerate(signup_id_list):
-        if i % 50 == 0:
-            logger.debug(f"      Processing {i+1}/{len(signup_id_list)}...")
-        
-        try:
-            signup_result = client.get_signup_by_id(
-                signup_id, 
-                fields=['first_name', 'last_name', 'email', 'banned_at', 'id', 'created_at']
+            taggings_result = client.get_signup_taggings(
+                filters={'tag_id': tag_id}, 
+                page_size=100
             )
+            taggings = taggings_result.get('data', [])
             
-            signup = signup_result.get('data')
-            if signup:
-                attrs = signup.get('attributes', {})
-                if not attrs.get('banned_at'):  # Not banned
-                    final_signups.append(signup)
-                    
-        except Exception:
-            continue
-    
-    logger.info(f"   ✅ Final count: {len(final_signups)} people (after banned filter)")
-    return final_signups
+            if not taggings:
+                break
+            
+            page_signup_ids = []
+            for tagging in taggings:
+                tagging_attrs = tagging.get('attributes', {})
+                signup_id = tagging_attrs.get('signup_id')
+                if signup_id:
+                    page_signup_ids.append(str(signup_id))
+            
+            signup_ids.extend(page_signup_ids)
+            total_processed += len(taggings)
+            
+            logger.debug(f"         Page {page}: Found {len(page_signup_ids)} signup IDs, total so far: {len(signup_ids)}")
+            
+            if len(taggings) < 100:
+                break
+                
+            page += 1
+            
+            if page > 1000:  # Safety limit
+                logger.warning(f"      Reached safety limit of 1000 pages")
+                break
+        
+        unique_signup_ids = list(set(signup_ids))
+        logger.info(f"   ✅ Found {len(unique_signup_ids)} unique signup IDs with tag ID {tag_id}")
+        
+        return unique_signup_ids
+        
+    except Exception as e:
+        logger.error(f"   ❌ Error finding signup IDs with tag ID {tag_id}: {e}")
+        return []
 
 
-def export_results_to_csv(people: List[Dict[str, Any]], logger) -> str:
-    """Export results to CSV for record-keeping"""
+def export_signup_ids_to_csv(signup_ids: List[str], tag_id: str, logger) -> str:
+    """Export signup IDs to CSV for record-keeping"""
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    filename = f"email_clickers_results_{timestamp}.csv"
-    
+    date_str = datetime.now().strftime("%Y%m%d")
+    output_dir = os.path.join(os.path.dirname(__file__), "..", "outputs")
+    os.makedirs(output_dir, exist_ok=True)
+    filename = f"{date_str}_clickers_update_tag_{timestamp}.csv"
+    filepath = os.path.join(output_dir, filename)
+
     try:
-        with open(filename, 'w', newline='', encoding='utf-8') as csvfile:
-            fieldnames = ['ID', 'First Name', 'Last Name', 'Email', 'Created At']
+        with open(filepath, 'w', newline='', encoding='utf-8') as csvfile:
+            fieldnames = ['Signup_ID', 'Tag_ID', 'Tag_Name', 'Export_Timestamp']
             writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
-            
             writer.writeheader()
-            
-            for person in people:
-                attrs = person.get('attributes', {})
+            for signup_id in signup_ids:
                 writer.writerow({
-                    'ID': person.get('id', ''),
-                    'First Name': attrs.get('first_name', ''),
-                    'Last Name': attrs.get('last_name', ''),
-                    'Email': attrs.get('email', ''),
-                    'Created At': attrs.get('created_at', '')
+                    'Signup_ID': signup_id,
+                    'Tag_ID': tag_id,
+                    'Tag_Name': TARGET_TAG_NAME,
+                    'Export_Timestamp': timestamp
                 })
-        
-        logger.info(f"   📄 Results exported to: {filename}")
-        return filename
-        
+        logger.info(f"   📄 Signup IDs exported to: {filepath}")
+        return filepath
     except Exception as e:
         logger.error(f"   ❌ CSV export failed: {e}")
         return None
 
 
-def run_filter(client: NationBuilderClient, logger) -> Dict[str, Any]:
+def process_signup_path_journey(client: NationBuilderClient, signup_id: str, logger) -> bool:
     """
-    Main function that implements the filter interface
-    This is called by the main orchestrator
+    Enhanced logic: 
+    1. Check if signup has ANY journey on path 1109 (active or inactive)
+    2. If active journey → update to step 1380
+    3. If inactive journey → reactivate at step 1380
+    4. If no journey → create new journey at step 1380
     
-    TESTING MODE: Only exports CSV, does NOT assign to NationBuilder paths
+    Returns True if successful, False if failed
     """
+    # DEBUG: Check what values we're working with
+    logger.info(f"🔍 PATH_STEP_ID value: '{PATH_STEP_ID}' (type: {type(PATH_STEP_ID)})")
+    
+    try:
+        # First, let's see ALL path journeys for this signup to understand what's happening
+        logger.info(f"      🔍 Checking all path journeys for signup {signup_id}")
+        all_journeys_url = f"{client.base_url}/path_journeys"
+        all_journeys_params = {'filter[signup_id]': signup_id}
+        all_response = client._make_request('GET', all_journeys_url, params=all_journeys_params)
+        all_data = client._handle_response(all_response)
+        
+        all_journeys = all_data.get('data', [])
+        logger.info(f"      📋 Found {len(all_journeys)} total path journeys for signup {signup_id}")
+        
+        target_journey = None
+        for journey in all_journeys:
+            journey_id = journey['id']
+            attrs = journey['attributes']
+            path_id = attrs.get('path_id')
+            current_step = attrs.get('current_step_id')
+            status = attrs.get('journey_status')
+            logger.info(f"         - Journey {journey_id}: path {path_id}, step {current_step}, status {status}")
+            
+            # Look for ANY journey on our target path (active or inactive)
+            if path_id == PATH_ID:
+                target_journey = journey
+        
+        if target_journey:
+            # They have a journey on path 1109 (might be active or inactive)
+            journey_id = target_journey['id']
+            current_step = target_journey['attributes'].get('current_step_id')
+            current_status = target_journey['attributes'].get('journey_status')
+            
+            logger.info(f"      📋 Signup {signup_id} HAS a journey on path {PATH_ID}")
+            logger.info(f"         Journey ID: {journey_id}")
+            logger.info(f"         Current step: {current_step}")
+            logger.info(f"         Current status: {current_status}")
+            
+            if current_step == PATH_STEP_ID and current_status == 'active':
+                logger.info(f"      ✅ Signup {signup_id} already on correct step {PATH_STEP_ID} and active")
+                return True
+            elif current_status == 'active':
+                # Active journey, just update the step
+                logger.info(f"      🔄 Updating active journey {journey_id} from step {current_step} to step {PATH_STEP_ID}")
+                step_id_to_send = str(PATH_STEP_ID)
+                logger.info(f"      🔍 About to call update_path_journey_step with step_id='{step_id_to_send}'")
+                
+                update_result = client.update_path_journey_step(journey_id, step_id_to_send)
+                logger.info(f"      🔍 Update result: {update_result}")
+                logger.info(f"      ✅ Journey updated successfully")
+                return True
+            else:
+                # Inactive journey, reactivate it at the new step
+                logger.info(f"      🔄 Reactivating inactive journey {journey_id} at step {PATH_STEP_ID}")
+                step_id_to_send = str(PATH_STEP_ID)
+                logger.info(f"      🔍 About to call reactivate_path_journey with step_id='{step_id_to_send}'")
+                
+                reactivate_result = client.reactivate_path_journey(journey_id, step_id_to_send)
+                logger.info(f"      🔍 Reactivate result: {reactivate_result}")
+                logger.info(f"      ✅ Journey reactivated successfully")
+                return True
+        else:
+            # They have no journey on path 1109, create new journey
+            logger.info(f"      📋 Signup {signup_id} has NO journey on path {PATH_ID} - creating new journey")
+            step_id_to_send = str(PATH_STEP_ID)
+            logger.info(f"      🔍 About to call create_path_journey with step_id='{step_id_to_send}'")
+            
+            create_result = client.create_path_journey(signup_id, PATH_ID, step_id_to_send)
+            logger.info(f"      🔍 Create result: {create_result}")
+            logger.info(f"      ✅ New journey created successfully")
+            return True
+            
+    except NationBuilderAPIError as e:
+        logger.error(f"      ❌ API error for signup {signup_id}: {e}")
+        return False
+    except Exception as e:
+        logger.error(f"      ❌ Unexpected error for signup {signup_id}: {e}")
+        return False
+
+
+def run_filter(client: NationBuilderClient, logger) -> Dict[str, Any]:
+    """Main function that implements the filter interface"""
     logger.info(f"🎯 {FILTER_NAME}")
     logger.info(f"   {FILTER_DESCRIPTION}")
-    logger.info(f"   Date range: {START_DATE} to {END_DATE}")
-    logger.info("   ⚠️  TESTING MODE: CSV export only, NO path assignments")
-    
-    # Step 1: Find email clickers
-    clicker_ids = get_email_clickers_from_broadcasts(client, logger)
-    
-    # If first approach didn't work well, try alternative
-    if len(clicker_ids) < 10:  # Seems low, try alternative
-        logger.info("   🔄 First approach found few results, trying alternative...")
-        alt_clicker_ids = get_email_clickers_alternative_approach(client, logger)
-        clicker_ids.update(alt_clicker_ids)  # Combine results
-    
-    if not clicker_ids:
-        logger.warning("   No email clickers found in date range")
+    logger.info(f"   Target tag ID: {TARGET_TAG_ID} ({TARGET_TAG_NAME})")
+    logger.info(f"   Target path: {PATH_ID}, step: {PATH_STEP_ID}")
+    logger.info("   🚀 Enhanced logic: Update, reactivate, or create journeys")
+
+    # Find signup IDs with the target tag ID
+    signup_ids = find_signup_ids_with_tag_id(client, TARGET_TAG_ID, logger)
+
+    if not signup_ids:
+        logger.warning(f"   No signup IDs found with tag ID {TARGET_TAG_ID}")
         return {
             'people_count': 0,
-            'csv_filename': None
+            'csv_filename': None,
+            'list_slug': None,
+            'list_id': None
         }
-    
-    # Step 2: Apply path exclusions
-    clickers_after_exclusions = apply_path_exclusions_clickers(client, clicker_ids, logger)
-    
-    if not clickers_after_exclusions:
-        logger.warning("   No clickers remaining after path exclusions")
+
+    # Export signup IDs to CSV
+    csv_filename = export_signup_ids_to_csv(signup_ids, TARGET_TAG_ID, logger)
+
+    # Create a unique list and add people
+    date_str = datetime.now().strftime("%y%m%d")
+    base_slug = f"_{date_str}i_c_"
+    suffix = 1
+    while True:
+        list_slug = f"{base_slug}{suffix}"
+        existing_list = client.list_exists(list_slug)
+        if not existing_list:
+            break
+        suffix += 1
+
+    logger.info(f"   📝 Creating new list with slug: {list_slug}")
+    admin_signup_id = os.getenv("NB_ADMIN_SIGNUP_ID")
+    if not admin_signup_id:
+        logger.error("❌ NB_ADMIN_SIGNUP_ID not set in environment. Cannot create list.")
         return {
-            'people_count': 0,
-            'csv_filename': None
+            'people_count': len(signup_ids),
+            'csv_filename': csv_filename,
+            'list_slug': list_slug,
+            'list_id': None
         }
+
+    try:
+        list_obj = client.create_list(list_slug, list_slug, admin_signup_id)
+        list_id = list_obj['data']['id']
+        logger.info(f"   📝 List created successfully with ID: {list_id}")
+
+        # Add people to the list
+        logger.info(f"   ➕ Adding {len(signup_ids)} people to list {list_slug}")
+        add_result = client.add_people_to_list(list_id, signup_ids)
+        logger.info(f"   ✅ People added to list")
+
+    except Exception as e:
+        logger.error(f"   ❌ Error creating/populating list: {e}")
+        list_id = None
+
+    # Process path journeys with enhanced logic
+    logger.info(f"   🛤️  Processing path journeys for {len(signup_ids)} people...")
     
-    # Step 3: Get records and filter banned
-    final_clickers = get_final_records_and_filter_banned(client, clickers_after_exclusions, logger)
-    
-    if not final_clickers:
-        logger.warning("   No clickers remaining after banned filter")
-        return {
-            'people_count': 0,
-            'csv_filename': None
-        }
-    
-    # Step 4: TESTING MODE - Only export CSV, NO path assignment
-    logger.info(f"   ⚠️  TESTING MODE: Skipping path assignment for {len(final_clickers)} people")
-    
-    # Step 5: Export results
-    csv_filename = export_results_to_csv(final_clickers, logger)
-    
+    successful_updates = 0
+    errors = 0
+
+    for i, signup_id in enumerate(signup_ids):
+        if i % 10 == 0:  # Progress logging every 10 people
+            logger.info(f"      Progress: {i+1}/{len(signup_ids)} processed")
+        
+        logger.debug(f"   Processing signup {i+1}/{len(signup_ids)}: {signup_id}")
+        
+        success = process_signup_path_journey(client, signup_id, logger)
+        
+        if success:
+            successful_updates += 1
+        else:
+            errors += 1
+
+    # Summary
+    logger.info(f"   📊 Path Journey Results:")
+    logger.info(f"      ✅ Successful: {successful_updates}")
+    logger.info(f"      ❌ Errors: {errors}")
+
+    logger.info(f"   ✅ COMPLETE: Created list '{list_slug}', added {len(signup_ids)} people, processed path journeys")
+
     return {
-        'people_count': len(final_clickers),
-        'csv_filename': csv_filename
+        'people_count': len(signup_ids),
+        'csv_filename': csv_filename,
+        'list_slug': list_slug,
+        'list_id': list_id,
+        'path_updates_successful': successful_updates,
+        'path_updates_errors': errors
     }

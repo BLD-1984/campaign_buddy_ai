@@ -3,7 +3,7 @@
 Utilities for generating summary reports
 Updated for testing mode - no path assignments
 """
-
+import os
 import csv
 from datetime import datetime
 from typing import Dict, List, Any
@@ -12,9 +12,13 @@ from typing import Dict, List, Any
 def generate_summary_report(results: List[Dict[str, Any]], log_filename: str) -> str:
     """Generate a summary report of all filter results"""
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    report_filename = f"clickers_test_summary_{timestamp}.csv"
-    
-    with open(report_filename, 'w', newline='', encoding='utf-8') as csvfile:
+    date_str = datetime.now().strftime("%Y%m%d")
+    output_dir = os.path.join(os.path.dirname(__file__), "..", "outputs")
+    os.makedirs(output_dir, exist_ok=True)
+    report_filename = f"{date_str}_clickers_test_summary_{timestamp}.csv"
+    report_filepath = os.path.join(output_dir, report_filename)
+
+    with open(report_filepath, 'w', newline='', encoding='utf-8') as csvfile:
         fieldnames = [
             'Filter Name', 'Success', 'People Found', 'CSV Filename', 'Error'
         ]
@@ -31,7 +35,33 @@ def generate_summary_report(results: List[Dict[str, Any]], log_filename: str) ->
                 'Error': result['error'] or ''
             })
     
-    return report_filename
+        pass
+
+    return report_filepath
+
+# def generate_summary_report(results: List[Dict[str, Any]], log_filename: str) -> str:
+#     """Generate a summary report of all filter results"""
+#     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+#     report_filename = f"clickers_test_summary_{timestamp}.csv"
+    
+#     with open(report_filename, 'w', newline='', encoding='utf-8') as csvfile:
+#         fieldnames = [
+#             'Filter Name', 'Success', 'People Found', 'CSV Filename', 'Error'
+#         ]
+#         writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+        
+#         writer.writeheader()
+        
+#         for result in results:
+#             writer.writerow({
+#                 'Filter Name': result['filter_name'],
+#                 'Success': 'YES' if result['success'] else 'NO',
+#                 'People Found': result['people_count'],
+#                 'CSV Filename': result['csv_filename'],
+#                 'Error': result['error'] or ''
+#             })
+    
+#     return report_filename
 
 
 # nb_path_updates/nb_nightly/utils/logging_utils.py

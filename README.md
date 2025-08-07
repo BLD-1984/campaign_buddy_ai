@@ -2,37 +2,64 @@
 # MIGHT NEED TO re-clone or reset their local repos ON PORTABLE LAPTOP 
  - 20250802 
 
-Let's go! 
 
-campaign_buddy_ai/
-...
-├── nb_path_updates/
-│   ├── nb_nightly/
-│   ├── nb_weekly/
-│   ├── nb_monthly/
-├── src/
-... 
+# WORK LOG (MAJOR STEPS)
 
+UPDATE RUNNING AND BUILDING SECTIONS SEPARATELY 
 
-campaign_buddy_ai/
-├── .venv/
-├── data/
-│   ├── .gitkeep
-├── src/
-│   ├── __init__.py
-│   ├── main.py  # FastAPI app
-│   ├── db.py    # Database connection logic
-├── tests/
-│   ├── __init__.py
-├── .env
-├── .gitignore
-├── requirements.txt
-├── README.md
+THIS IS JUST FOR FOLLOWING WHERE WE ARE IN THE PROJECT 
+
+## Late-July 
+
+* Scoped out project, via a few LLM sessions (see work & projects folder "20250620-LLM for customized NB email blasts by segment")
+
+* Got set up to point of opening a NB database snapshot and generated email open frequency 
+  * src\email_open_frequency.py
 
 
-├── Dockerfile   # For containerizing the app
-├── docker-compose.yml  # For local Postgres
+## Early-August 
 
+### Side project to automate path updates 
+
+To get familiar with NB APIs (and to get some tasks off my plate), 
+want to set up scripts to automate the path updates 
+
+#### 20250807 
+
+Prompt to shift over from Claude.AI to VSCode's AI chat 
+
+  OK, I'm picking things up with you mid-project. Let's try to catch you up to speed. 
+  I'm developing a script that works with NationBuilder's API. 
+  The intention is to have it run on Google Cloud Functions (using a timer trigger), 
+  but I also want to be able to develop, test, and run locally (that's where we at now, no Google Cloud Function aspec yet). 
+  It will update the "path step" for certain people in NationBuilder (path steps are a NationBuilder feature we can review later), however, currently we're just finding the correct people in NationBuilder, we haven't gotten to writing data to NationBuilder yet. 
+
+  The script is composed of modules. 
+  The main file: 
+  nb_path_updates\nb_path_nightly\main.py 
+  Utilities modules: 
+  nb_path_updates\nb_path_nightly\utils\logging_utils.py
+  nb_path_updates\nb_path_nightly\utils\reporting_utils.py
+  First of ~6 modules that will be used to update the various people: 
+  nb_path_updates\nb_path_nightly\filters\clickers.py
+
+  What I currently need help with is to get the automatic token refresh set up. I will give you additional info about what we've got there so far, but I wanted to give you the background first. Are you clear on the background and can we proceed to the token auto-refresh, or should we review the background and context more?  I want to make sure you are very clear on the overall project before proceeding. 
+
+Follow up prompt: 
+
+  OK, I've attached NationBuilder's API Authentication Guide, which I've been following. 
+  I've completed up through step 5 in Setting Up OAuth 2.0 Authentication, but i'm having trouble wiht the Refresh Token Flow section. 
+  These are the files that I've set up so far: 
+  src\nb_api_client.py
+  src\oauth_token_exchanger.py
+  These are the names of the references in my .env
+  NB_NATION_SLUG=...
+  NB_PA_ID=...
+  NB_PA_SECRET=...
+  NB_PA_REDIRECT_URI=http://localhost:8000/callback
+  NB_PA_TOKEN=...
+  NB_PA_TOKEN_REFRESH=...
+  Can you help me test the token refresh? I'm new to APIs, tokens, and authentification, and I'd like to get the token refresh aspect set up in a solid and dependable way. I'd like whatever we set up now to be able to run on both the local testing and on the Google Cloud Functions when we're ready to shift things over to there. 
 
 
 # RUNNING 
@@ -52,6 +79,7 @@ campaign_buddy_ai/
   * When you're done working: `docker-compose down`
     * This stops the containers but keeps your data 
 
+### Temp notes 
 
 Sample database extraction powershell commands 
 
@@ -64,7 +92,7 @@ nbuild_larouchepac.signups
 
 ## NationBuilder API 
 
-* ... using refresh token ... 
+* ... 
 
 
 # STEP-BY-STEP BUILDING 
@@ -130,7 +158,7 @@ nbuild_larouchepac.signups
   * Export database tables 
     * `docker exec -it campaign_buddy_postgres psql -U dev_user -d campaign_buddy_ai -c "\dt nbuild_larouchepac.*" > tables.txt` 
 
-## NationBuilder API 
+## NationBuilder API Authentification 
 
 Following "API Authentication Guide" 
     `https://intercom.help/3dna/en/articles/9903805-api-authentication-guide`
@@ -148,15 +176,48 @@ Following "API Authentication Guide"
   * Saved 
     * access_token
     * refresh_token 
-  * Access token is good for 24 hours, then need to use refresh token
-    * "Your application must make a refresh_token grant type request to receive a new access token before or after the access token expires" 
-    * "Your application can make the refresh flow request either by:" 
-      * "Handling the token_expired error response that will result when you make an API request with an already-expired access token" 
-      * "Refreshing the access token in your application before it expires. When you receive an access token, the response body includes an expires_in field with the number of seconds until the access token will expire (24 hours by default). You can use this information to calculate a time within your application to refresh the token before it expires instead of handling the error."
+  * Access tokens are good for 24 hours, then need to use refresh token
+
+## NB API Access Scripts 
+
+* src\nb_api_client.py 
+  * Built by Claud.AI, handles: 
+  * Authentication: 
+    * Handles OAuth 2.0, including automatic refresh of access tokens using the refresh token when the API returns a 401 Unauthorized.
+    * Updates .env with new tokens when running locally; uses environment variables in cloud deployments.
+  * API Requests: 
+    * Wraps NationBuilder endpoints for signups, tags, taggings, paths, path steps, and path journeys, making it easy to fetch and update people and their path steps.
+  * Pagination: 
+    * Supports fetching large datasets across multiple pages.
+  * Error Handling: 
+    * Raises custom exceptions and logs errors for failed requests or authentication issues.
+
+* src\oauth_token_exchanger.py 
+  * Built by Claud.ai, only for manual refresh of tokens 
+  * A utility script that helps you manually obtain fresh NationBuilder API tokens using the OAuth 2.0 authorization code flow in a step by step process. 
+
+## NationBuilder Paths Scripts
+
+* Using NB API to automate the path updates 
+* The script and it's modules are under nb_path_updates\ 
+* nb_path_updates\nb_path_nightly 
+  * For updating people onto the relevant path steps each night 
+    * Relies on existing NB saved filters and their tags (outlined below)
 
 
+### NationBuilder Filters and Auto-Tags 
 
-# BASIC GITHUB SETUP: 
+* Using saved filters and autotags
+  * Due to the limits of NB API (limits not fully confirmed)
+  * Will need to run nightly 
+    * Saved filters grab anyone with relevant activity in last 24 hours, and tag them 
+    * Script will then find people with those tags, and add them to the appropriate path step 
+* For clickers path 
+  * Saved filter, 
+  * Auto-Tag, zi-c-24h
+
+
+# BASIC GITHUB SETUP NOTES: 
 
 ## Create new repo
 * Create local folder 
