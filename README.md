@@ -4,6 +4,15 @@
 
 Let's go! 
 
+campaign_buddy_ai/
+...
+├── nb_path_updates/
+│   ├── nb_nightly/
+│   ├── nb_weekly/
+│   ├── nb_monthly/
+├── src/
+... 
+
 
 campaign_buddy_ai/
 ├── .venv/
@@ -136,7 +145,7 @@ Following "API Authentication Guide"
     * `https://[YOUR_NATION].nationbuilder.com/oauth/authorize?client_id=YOUR_CLIENT_ID&redirect_uri=YOUR_REDIRECT_URI&response_type=code`
   * Exchange the authorization code for an access token 
     * `nationbuilder_token_exchange.py`
-  * Save 
+  * Saved 
     * access_token
     * refresh_token 
   * Access token is good for 24 hours, then need to use refresh token
