@@ -61,14 +61,31 @@ Follow up prompt:
   NB_PA_TOKEN_REFRESH=...
   Can you help me test the token refresh? I'm new to APIs, tokens, and authentification, and I'd like to get the token refresh aspect set up in a solid and dependable way. I'd like whatever we set up now to be able to run on both the local testing and on the Google Cloud Functions when we're ready to shift things over to there. 
 
-______________________
+____________________________________________
+____________________________________________
 --> CURRENT STATUS <--
-
 For the clickers module, got the script successfully 
 - finding people wiht a tag 
 - adding them to a new list (with slug secured)
 - updating them to the relevant path step 
-______________________
+
+--> NEXT STEPS <--
+- review clickers, nb_api_client, and main to understand what's going on 
+- clean up clickers, nb_api_client, and main
+- assess if should add docker before Google Cloud 
+- get running on Google Cloud 
+  - need to add and connect storage probably 
+- set up saved filter & auto tag
+  - check autotag timing and have timer trigger set appropriately 
+- add modules for each path 
+
+--> LATER STEPS <--
+- monthly updates to path names as separate set of modules 
+- consider email open frequency auto-path 
+  - would need to automatically grab and parse database snapshot 
+  - might want to control auto-path from list (one list per step) so nightly runs could ensure steps are correct (without having to run full databse parsing and assessment, which would probably run weekly or monthly, given the level of compute required)
+____________________________________________
+____________________________________________
 
 
 
