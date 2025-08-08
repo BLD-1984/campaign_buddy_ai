@@ -1,2 +1,0 @@
-Filter Name,Success,People Found,CSV Filename,Error
-Email Clickers Filter,NO,0,,"API Error 422 - {'errors': [{'code': 'unprocessable_entity', 'status': '422', 'title': 'Validation Error', 'detail': ""Author can't be blank"", 'source': {'pointer': '/data/relationships/author'}, 'meta': {'attribute': 'author', 'message': ""can't be blank"", 'code': 'blank'}}]}"

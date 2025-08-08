@@ -61,6 +61,17 @@ Follow up prompt:
   NB_PA_TOKEN_REFRESH=...
   Can you help me test the token refresh? I'm new to APIs, tokens, and authentification, and I'd like to get the token refresh aspect set up in a solid and dependable way. I'd like whatever we set up now to be able to run on both the local testing and on the Google Cloud Functions when we're ready to shift things over to there. 
 
+______________________
+--> CURRENT STATUS <--
+
+For the clickers module, got the script successfully 
+- finding people wiht a tag 
+- adding them to a new list (with slug secured)
+- updating them to the relevant path step 
+______________________
+
+
+
 
 # RUNNING 
 
