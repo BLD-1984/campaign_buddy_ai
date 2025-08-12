@@ -66,13 +66,16 @@ ____________________________________________
 --> CURRENT STATUS <--
 For the clickers module, got the script successfully 
 - finding people wiht a tag 
-- adding them to a new list (with slug secured)
+- adding them to a new list (with unique slug)
 - updating them to the relevant path step 
 
---> NEXT STEPS <--
+--> NEXT STEPS: CLEAN, UNDERSTAND, TEST <--
 - review clickers, nb_api_client, and main to understand what's going on 
 - clean up clickers, nb_api_client, and main
+- Set up testing 
 - assess if should add docker before Google Cloud 
+
+--> DEPLOY TO CLOUD <--
 - get running on Google Cloud 
   - need to add and connect storage probably 
 - set up saved filter & auto tag
