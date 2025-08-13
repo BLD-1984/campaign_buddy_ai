@@ -70,13 +70,13 @@ def run_filter_module(filter_module, client: NationBuilderClient, logger) -> Dic
     Run a single filter module and return results
     """
     filter_name = filter_module.FILTER_NAME
-    logger.info(f"🎯 Starting filter: {filter_name}")
+    logger.info(f" Starting filter: {filter_name}")
     
     try:
         # Each filter module implements this interface
         result = filter_module.run_filter(client, logger)
         
-        logger.info(f"✅ {filter_name} completed successfully")
+        logger.info(f" {filter_name} completed successfully")
         logger.info(f"   Found: {result.get('people_count', 0)} people")
         logger.info(f"   CSV exported: {result.get('csv_filename', 'None')}")
         
@@ -97,7 +97,7 @@ def run_filter_module(filter_module, client: NationBuilderClient, logger) -> Dic
         }
         
     except Exception as e:
-        logger.error(f"❌ {filter_name} failed: {str(e)}")
+        logger.error(f" {filter_name} failed: {str(e)}")
         return {
             'filter_name': filter_name,
             'success': False,
@@ -114,56 +114,56 @@ def main():
     """Main orchestrator function - CLICKERS with simple path logic"""
     # Setup
     logger, log_filename = setup_logging()
-    logger.info("🚀 Starting Clickers Filter Run")
+    logger.info(" Starting Clickers Filter Run")
     logger.info("=" * 60)
     
     # Initialize client
     try:
         client = load_client()
-        logger.info("✅ NationBuilder client initialized")
+        logger.info(" NationBuilder client initialized")
         
         # Test connection
         if not client.test_connection():
-            logger.error("❌ Failed to connect to NationBuilder API")
+            logger.error(" Failed to connect to NationBuilder API")
             return
             
     except Exception as e:
-        logger.error(f"❌ Failed to initialize client: {e}")
+        logger.error(f" Failed to initialize client: {e}")
         return
     
     # Run the clickers filter
-    logger.info("📋 Running CLICKERS filter with simple path logic")
+    logger.info(" Running CLICKERS filter with simple path logic")
     
     result = run_filter_module(clickers, client, logger)
     
     # Generate summary report
     logger.info("\n" + "=" * 60)
-    logger.info("📊 CLICKERS RUN SUMMARY")
+    logger.info(" CLICKERS RUN SUMMARY")
     logger.info("=" * 60)
     
     if result['success']:
-        logger.info(f"✅ {result['filter_name']}: {result['people_count']} people found")
-        logger.info(f"📄 CSV exported: {result['csv_filename']}")
-        logger.info(f"📋 List created: {result['list_slug']}")
-        logger.info(f"🛤️  Path updates - Success: {result['path_updates_successful']}, "
+        logger.info(f" {result['filter_name']}: {result['people_count']} people found")
+        logger.info(f" CSV exported: {result['csv_filename']}")
+        logger.info(f" List created: {result['list_slug']}")
+        logger.info(f"  Path updates - Success: {result['path_updates_successful']}, "
                    f"Errors: {result['path_updates_errors']}")
     else:
-        logger.info(f"❌ {result['filter_name']}: FAILED - {result['error']}")
+        logger.info(f" {result['filter_name']}: FAILED - {result['error']}")
     
     # Generate and save summary report
     try:
         report_filename = reporting_utils.generate_summary_report([result], log_filename)
-        logger.info(f"📄 Summary report saved: {report_filename}")
+        logger.info(f" Summary report saved: {report_filename}")
     except Exception as e:
-        logger.error(f"⚠️  Could not generate summary report: {e}")
+        logger.error(f"  Could not generate summary report: {e}")
     
     # Log completion
     if result['success']:
-        logger.info("🎉 Clickers filter run completed successfully!")
+        logger.info(" Clickers filter run completed successfully!")
     else:
-        logger.warning("⚠️  Clickers filter run had issues - check logs for details")
+        logger.warning("  Clickers filter run had issues - check logs for details")
     
-    logger.info("✅ Run completed")
+    logger.info(" Run completed")
     
     return [result]
 
@@ -172,6 +172,6 @@ if __name__ == "__main__":
     try:
         main()
     except Exception as e:
-        print(f"❌ Fatal error in main: {e}")
+        print(f" Fatal error in main: {e}")
         import traceback
         traceback.print_exc()

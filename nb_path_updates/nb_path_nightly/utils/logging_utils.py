@@ -103,7 +103,7 @@ class ProgressTracker:
         self.log_every_n = max(1, total_items // 20)  # Log every 5%
         self.log_every_n = min(self.log_every_n, 100)  # But at least every 100 items
         
-        self.logger.info(f"🚀 Starting {operation_name} for {total_items} items")
+        self.logger.info(f" Starting {operation_name} for {total_items} items")
     
     def update(self, increment: int = 1):
         """Update progress and log if needed"""
@@ -115,9 +115,9 @@ class ProgressTracker:
             elapsed = datetime.now() - self.start_time
             
             if self.processed_items == self.total_items:
-                self.logger.info(f"✅ {self.operation_name} completed: {self.processed_items}/{self.total_items} in {elapsed}")
+                self.logger.info(f" {self.operation_name} completed: {self.processed_items}/{self.total_items} in {elapsed}")
             else:
-                self.logger.debug(f"📊 {self.operation_name} progress: {self.processed_items}/{self.total_items} ({percent:.1f}%)")
+                self.logger.debug(f" {self.operation_name} progress: {self.processed_items}/{self.total_items} ({percent:.1f}%)")
     
     def log_batch_result(self, batch_num: int, batch_size: int, success_count: int):
         """Log results for a batch operation"""
@@ -144,7 +144,7 @@ class FilterMetrics:
         """Log a step in the filter process"""
         setattr(self, step_name.lower().replace(' ', '_'), count)
         note_str = f" ({note})" if note else ""
-        self.logger.info(f"   📊 {step_name}: {count} people{note_str}")
+        self.logger.info(f"    {step_name}: {count} people{note_str}")
     
     def increment_api_calls(self):
         """Track API call count"""
@@ -158,20 +158,20 @@ class FilterMetrics:
         """Log final metrics summary"""
         duration = datetime.now() - self.start_time
         
-        self.logger.info(f"\n📈 {self.filter_name} - Final Metrics:")
-        self.logger.info(f"   ⏱️  Duration: {duration}")
-        self.logger.info(f"   👥 People with tags: {self.people_with_tags}")
-        self.logger.info(f"   🛤️  After exclusions: {self.people_after_exclusions}")
-        self.logger.info(f"   🚫 After banned filter: {self.people_after_banned_filter}")
-        self.logger.info(f"   ✅ Successfully assigned: {self.people_assigned}")
-        self.logger.info(f"   🔗 API calls made: {self.api_calls_made}")
+        self.logger.info(f"\n {self.filter_name} - Final Metrics:")
+        self.logger.info(f"     Duration: {duration}")
+        self.logger.info(f"    People with tags: {self.people_with_tags}")
+        self.logger.info(f"     After exclusions: {self.people_after_exclusions}")
+        self.logger.info(f"    After banned filter: {self.people_after_banned_filter}")
+        self.logger.info(f"    Successfully assigned: {self.people_assigned}")
+        self.logger.info(f"    API calls made: {self.api_calls_made}")
         if self.errors_encountered > 0:
-            self.logger.info(f"   ❌ Errors encountered: {self.errors_encountered}")
+            self.logger.info(f"    Errors encountered: {self.errors_encountered}")
 
 
 def log_filter_start(logger: logging.Logger, filter_name: str, config: dict):
     """Log the start of a filter with its configuration"""
-    logger.info(f"\n🎯 {filter_name}")
+    logger.info(f"\n {filter_name}")
     logger.info("=" * 50)
     logger.info(f"Description: {config.get('description', 'N/A')}")
     logger.info(f"Target Path: {config.get('target_path_id')} (Step: {config.get('target_step_id')})")
@@ -180,7 +180,7 @@ def log_filter_start(logger: logging.Logger, filter_name: str, config: dict):
 
 def log_filter_completion(logger: logging.Logger, filter_name: str, result: dict):
     """Log the completion of a filter"""
-    status = "✅ SUCCESS" if result.get('success', False) else "❌ FAILED"
+    status = " SUCCESS" if result.get('success', False) else " FAILED"
     logger.info(f"\n{status} - {filter_name}")
     
     if result.get('success'):
@@ -194,7 +194,7 @@ def log_filter_completion(logger: logging.Logger, filter_name: str, result: dict
 
 def log_system_info(logger: logging.Logger):
     """Log system information at the start of a run"""
-    logger.info("🖥️  System Information:")
+    logger.info("  System Information:")
     logger.info(f"   Python version: {sys.version}")
     logger.info(f"   Working directory: {os.getcwd()}")
     logger.info(f"   Log level: {logger.level}")

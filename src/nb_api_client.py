@@ -66,7 +66,7 @@ class NationBuilderClient:
                 "Missing credentials for token refresh. Need refresh_token, client_id, and client_secret."
             )
         
-        logger.info("🔄 Refreshing access token...")
+        logger.info(" Refreshing access token...")
         
         # Prepare refresh request data
         refresh_data = {
@@ -96,7 +96,7 @@ class NationBuilderClient:
                 # Update session headers with new token
                 self._update_session_headers()
                 
-                logger.info(f"✅ Token refresh successful")
+                logger.info(f" Token refresh successful")
                 logger.debug(f"   Old token: {old_access_token}")
                 logger.debug(f"   New token: {self.access_token[:20]}...")
                 
@@ -107,12 +107,12 @@ class NationBuilderClient:
                 
             else:
                 error_msg = f"Token refresh failed with status {response.status_code}: {response.text}"
-                logger.error(f"❌ {error_msg}")
+                logger.error(f" {error_msg}")
                 raise NationBuilderAPIError(error_msg)
                 
         except requests.RequestException as e:
             error_msg = f"Network error during token refresh: {e}"
-            logger.error(f"❌ {error_msg}")
+            logger.error(f" {error_msg}")
             raise NationBuilderAPIError(error_msg)
     
     def _update_env_file_if_local(self):
@@ -123,7 +123,7 @@ class NationBuilderClient:
         try:
             # Only do this if we can detect we're in a local environment
             if os.path.exists('.env') and not os.getenv('GOOGLE_CLOUD_PROJECT'):
-                logger.debug("📁 Updating local .env file with new tokens")
+                logger.debug(" Updating local .env file with new tokens")
                 
                 # Read current .env file
                 env_lines = []
@@ -173,7 +173,7 @@ class NationBuilderClient:
         
         # Handle 401 (Unauthorized) - likely expired token
         if response.status_code == 401 and self._refresh_attempts < self._max_refresh_attempts:
-            logger.info("🔓 Got 401 Unauthorized, attempting token refresh...")
+            logger.info(" Got 401 Unauthorized, attempting token refresh...")
             self._refresh_attempts += 1
             
             try:
@@ -181,15 +181,15 @@ class NationBuilderClient:
                 self.refresh_access_token()
                 
                 # Retry the original request with the new token
-                logger.debug("🔄 Retrying original request with refreshed token...")
+                logger.debug(" Retrying original request with refreshed token...")
                 response = self.session.request(method, url, **kwargs)
                 
                 if response.status_code != 401:
-                    logger.info("✅ Request successful after token refresh")
+                    logger.info(" Request successful after token refresh")
                     self._refresh_attempts = 0  # Reset counter on success
                     
             except NationBuilderAPIError as e:
-                logger.error(f"❌ Token refresh failed: {e}")
+                logger.error(f" Token refresh failed: {e}")
                 # Don't retry further, let the 401 response be handled downstream
         
         return response
@@ -353,10 +353,10 @@ class NationBuilderClient:
         try:
             # Simple test - get first page of signups with minimal data
             result = self.get_signups(fields=['first_name', 'last_name'], page_size=1)
-            logger.info("✅ API connection test successful")
+            logger.info(" API connection test successful")
             return True
         except Exception as e:
-            logger.error(f"❌ API connection test failed: {e}")
+            logger.error(f" API connection test failed: {e}")
             return False
     
     def get_all_signups_paginated(self, filters: Dict[str, Any] = None, 
@@ -493,11 +493,11 @@ class NationBuilderClient:
                 "signup_ids": signup_ids
             }
         }
-        logger.info(f"   ➡️ PATCH {url}")
-        logger.info(f"   ➡️ Payload: {json.dumps(data)}")
+        logger.info(f"    PATCH {url}")
+        logger.info(f"    Payload: {json.dumps(data)}")
         response = self._make_request('PATCH', url, json=data)
-        logger.info(f"   ⬅️ Response status: {response.status_code}")
-        logger.info(f"   ⬅️ Response text: {response.text}")
+        logger.info(f"    Response status: {response.status_code}")
+        logger.info(f"    Response text: {response.text}")
         return self._handle_response(response)
 
     def get_path_journey_for_signup(self, signup_id: str, path_id: str) -> Optional[Dict[str, Any]]:
@@ -526,11 +526,11 @@ class NationBuilderClient:
             }
         }
         logger.debug(f"update_path_journey_step called with journey_id={journey_id}, step_id={step_id} (type={type(step_id)})")
-        logger.info(f"   ➡️ PATCH {url}")
-        logger.info(f"   ➡️ Payload: {json.dumps(data)}")
+        logger.info(f"    PATCH {url}")
+        logger.info(f"    Payload: {json.dumps(data)}")
         response = self._make_request('PATCH', url, json=data)
-        logger.info(f"   ⬅️ Response status: {response.status_code}")
-        logger.info(f"   ⬅️ Response text: {response.text}")
+        logger.info(f"    Response status: {response.status_code}")
+        logger.info(f"    Response text: {response.text}")
         return self._handle_response(response)
     
     def reactivate_path_journey(self, journey_id: str, step_id: str) -> Dict[str, Any]:
@@ -545,11 +545,11 @@ class NationBuilderClient:
                 }
             }
         }
-        logger.info(f"   ➡️ PATCH {url}")
-        logger.info(f"   ➡️ Payload: {json.dumps(data)}")
+        logger.info(f"    PATCH {url}")
+        logger.info(f"    Payload: {json.dumps(data)}")
         response = self._make_request('PATCH', url, json=data)
-        logger.info(f"   ⬅️ Response status: {response.status_code}")
-        logger.info(f"   ⬅️ Response text: {response.text}")
+        logger.info(f"    Response status: {response.status_code}")
+        logger.info(f"    Response text: {response.text}")
         return self._handle_response(response)
 
     def create_path_journey(self, signup_id: str, path_id: str, step_id: str) -> Dict[str, Any]:
@@ -565,9 +565,9 @@ class NationBuilderClient:
                 }
             }
         }
-        logger.info(f"   ➡️ POST {url}")
-        logger.info(f"   ➡️ Payload: {json.dumps(data)}")
+        logger.info(f"    POST {url}")
+        logger.info(f"    Payload: {json.dumps(data)}")
         response = self._make_request('POST', url, json=data)
-        logger.info(f"   ⬅️ Response status: {response.status_code}")
-        logger.info(f"   ⬅️ Response text: {response.text}")
+        logger.info(f"    Response status: {response.status_code}")
+        logger.info(f"    Response text: {response.text}")
         return self._handle_response(response)
