@@ -1,6 +1,5 @@
 
-# MIGHT NEED TO re-clone or reset their local repos ON PORTABLE LAPTOP 
- - 20250802 
+# NEED TO REMOVE THE NB PATH UPDATES ASPECTS (those are shifted to separate repo) 
 
 
 # WORK LOG (MAJOR STEPS)
@@ -70,9 +69,38 @@ For the clickers module, got the script successfully
 - updating them to the relevant path step 
 
 --> NEXT STEPS: CLEAN, UNDERSTAND, TEST <--
+- Set up testing 
+
+  - Key Aspects of a Good Python Testing Setup
+    - A. Testing Framework
+      - Use pytest (industry standard, easy to use, powerful).
+      - Add a tests directory at your project root.
+    - B. Test Types
+      - Unit Tests: Test individual functions/classes (e.g., NationBuilderClient, filter modules).
+      - Integration Tests: Test interactions between modules (e.g., running a filter with a mock API client).
+      - Functional/End-to-End Tests: Simulate real user flows (optional for now, but good for SaaS).
+    - C. Test Coverage
+      - Core modules:
+      - nb_api_client.py: API calls, token refresh, error handling.
+      - main.py: Orchestration logic.
+      - logging_utils.py and reporting_utils.py: Utility functions.
+      - Filter modules (e.g., clickers): Business logic.
+    - D. Mocking External Services
+      - Mock NationBuilder API calls so tests don’t depend on the real API or network.
+      - Use pytest-mock or unittest.mock for this.
+    - E. Security Best Practices
+      - Never use real secrets/tokens in tests.
+      - Use environment variables or mock values.
+      - Ensure .env is excluded from version control (.gitignore).
+    - F. Test Data
+      - Use fixtures for sample data (e.g., fake API responses, test filter results).
+    - G. Automation
+      - Run tests locally with pytest.
+      - Prepare for CI/CD: Tests should run in GitHub Actions or other CI tools.
+      - Prepare for Docker: Tests should run inside containers.
+
 - review clickers, nb_api_client, and main to understand what's going on 
 - clean up clickers, nb_api_client, and main
-- Set up testing 
 - assess if should add docker before Google Cloud 
 
 --> DEPLOY TO CLOUD <--
@@ -266,9 +294,9 @@ Following "API Authentication Guide"
     * git commit -m "new" 
     * git push --set-upstream origin master 
 * Create virtual environment 
-    * python -m venv venv 
+    * python -m venv .venv 
 * Activate venv
-    * .\venv\Scripts\Activate.ps1 
+    * .\.venv\Scripts\Activate.ps1 
 * Install required packages 
     * pip install -r requirements.txt
 
@@ -276,8 +304,8 @@ Following "API Authentication Guide"
 * Navigate to / open VSCode to parent folder for repo 
     * git clone [...] 
 * Create virtual environment 
-    * python -m venv venv 
+    * python -m venv .venv 
 * Activate venv
-    * .\venv\Scripts\Activate.ps1 
+    * .\.venv\Scripts\Activate.ps1 
 * Install required packages 
     * pip install -r requirements.txt
